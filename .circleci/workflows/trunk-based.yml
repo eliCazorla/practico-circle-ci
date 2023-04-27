@@ -1,0 +1,51 @@
+version: 2.1
+
+parameters:
+  enable-trunk-based:
+    type: boolean
+    default: true
+
+workflows:
+  version: 2
+  trunk-based:
+    when: << pipeline.parameters.enable-trunk-based >>
+    jobs:
+      - setup:
+          filters:
+            branches:
+              only: main
+      - build:
+          requires:
+            - setup
+      - deployment:
+          name: deployment-develop
+          requires:
+            - build
+          ci_env: 'development'
+          env_suffix: '_DEV'
+      ###### BEGIN: OPTIONAL STAGING APPROVAL GATE ######
+      ## Comment out if the approval is not needed
+      - approve-build-staging:
+          type: approval
+          requires:
+            - deployment-develop
+      ###### END: OPTIONAL STAGING APPROVAL GATE ######
+      - deployment:
+          name: deployment-staging
+          requires:
+            - approve-build-staging
+          ci_env: 'staging'
+          env_suffix: '_STAGE'
+      ###### BEGIN: OPTIONAL PRODUCTION APPROVAL GATE ######
+      ## Comment out if the approval is not needed
+      - approve-build-production:
+          type: approval
+          requires:
+            - deployment-staging
+      ###### END: OPTIONAL PRODUCTION APPROVAL GATE ######
+      - deployment:
+          name: deployment-production
+          requires:
+            - approve-build-production
+          ci_env: 'production'
+          env_suffix: '_PROD'
